@@ -42,9 +42,9 @@ function ctrl_c {
 trap ctrl_c SIGINT
 
 while true ; do
-  sleep 3
   [[ $stop_now -eq 1 ]] && break
   [[ `wc -l $TMP | cut -d ' ' -f 1` -ge $(($COUNT * 3)) ]] && break
+  sleep 3
 done
 
 echo

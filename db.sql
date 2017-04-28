@@ -8,15 +8,14 @@ create table address
   , addr text unique not null
   );
 
+
 create table invoice
-  ( id serial primary key
-  , ctime timestamptz not null default now()
+  ( ctime timestamptz not null default now()
+  , mtime timestamptz not null default now()
   , currency currency_code not null
   , from_addr text unique not null references address(addr)
   , to_eth_addr text not null
+  , constraint invoice_unique_addr unique (to_eth_addr, currency)
   );
-
---? status: new, unconfirmed, confirmed
-
 
 -- grant all on transaction to info;
