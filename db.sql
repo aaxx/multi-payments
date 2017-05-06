@@ -11,7 +11,7 @@ create table address
 
 create table invoice
   ( ctime timestamptz not null default now()
-  , mtime timestamptz not null default now()
+  , last_activity not null default now()
   , currency currency_code not null
   , from_addr text unique not null references address(addr)
   , to_eth_addr text not null

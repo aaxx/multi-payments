@@ -76,7 +76,7 @@ httpServer pgPool = do
             order by to_eth_addr nulls last
             limit 1
           on conflict on constraint invoice_unique_addr
-            do update set mtime = now()
+            do update set last_activity = now()
           returning currency::text, from_addr, to_eth_addr
       |]
       (ethAddr, currency, ethAddr)
