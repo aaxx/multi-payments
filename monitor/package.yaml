@@ -11,12 +11,10 @@ dependencies:
   - aeson
   - configurator
   - containers
-  - http-types
   - postgresql-simple
   - resource-pool
-  - scotty
   - text
-  - vector
+  - websockets
   - wuss
 
 default-extensions:

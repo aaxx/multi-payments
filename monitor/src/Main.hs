@@ -1,7 +1,8 @@
 
 module Main where
 
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad (forever, void)
+import           Control.Concurrent (forkIO, threadDelay)
 
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -16,6 +17,9 @@ import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
 import           System.IO (stderr)
 import qualified System.Environment as Env
+
+import qualified Network.WebSockets as WS
+import qualified Wuss
 
 
 main :: IO ()
@@ -33,6 +37,9 @@ main = do
       pgPwd     <- Config.require conf "pg.pass"
       pgDb      <- Config.require conf "pg.db"
 
+      logInfo $ "Connecting to blockchain.info"
+      blockchainInfo
+
       logInfo $ "Connecting to Postgres on " <> T.pack pgHost
       let cInfo = PG.ConnectInfo
             pgHost pgPort
@@ -44,17 +51,32 @@ main = do
           (fromInteger 20) -- seconds
           5 -- maximum number of resources to keep open
 
-      loop pgPool
+      return ()
 
     _ -> error $ "Usage: " ++ prog ++ " <config.conf>"
 
 
-loop :: Pool PG.Connection -> IO ()
-loop _ = return ()
+blockchainInfo :: IO ()
+blockchainInfo = do
+  let bcInfo = "ws.blockchain.info"
+  Wuss.runSecureClient bcInfo 443 "/inv" $ \conn -> do
+    logInfo "Connected"
+
+    void . forkIO . forever $ do
+      WS.receiveData conn >>= T.putStrLn
+
+    WS.sendTextData conn $ Aeson.encode $ Aeson.object
+          [ "op" .= txt "unconfirmed_sub" ]
+    forever $ threadDelay 10000
+
 
 -----------
 -- Utility
 -----------
 
+
 logInfo :: Text -> IO ()
 logInfo = T.hPutStrLn stderr
+
+txt :: Text -> Text
+txt = id
