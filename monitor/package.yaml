@@ -12,6 +12,8 @@ dependencies:
   - bytestring
   - configurator
   - containers
+  - lens
+  - lens-aeson
   - postgresql-simple
   - resource-pool
   - text
