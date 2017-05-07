@@ -1,0 +1,39 @@
+name:        monitor
+version:     "0.0"
+synopsis:    Monitors addresses and transactions
+license:     MIT
+author:      Max Taldykin
+maintainer:  <max@formalmethods.ru>
+category:    Development
+
+dependencies:
+  - base
+  - aeson
+  - configurator
+  - containers
+  - http-types
+  - postgresql-simple
+  - resource-pool
+  - scotty
+  - text
+  - vector
+  - wuss
+
+default-extensions:
+  - LambdaCase
+  - FlexibleContexts
+  - FlexibleInstances
+  - MultiParamTypeClasses
+  - OverloadedStrings
+  - RecordWildCards
+
+ghc-options:
+  - -Wall
+  - -threaded
+  - -O2
+  - -funbox-strict-fields
+
+executables:
+  monitor:
+    source-dirs: src
+    main: Main.hs
