@@ -12,14 +12,16 @@ dependencies:
   - bytestring
   - configurator
   - containers
+  - http-client
+  - http-client-tls
   - lens
   - lens-aeson
   - postgresql-simple
   - resource-pool
   - text
+  - unix
   - websockets
   - wuss
-  - unix
 
 default-extensions:
   - LambdaCase

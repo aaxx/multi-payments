@@ -2,7 +2,6 @@
 module Main where
 
 import           Control.Monad (void)
-import           Control.Concurrent (forkIO)
 import           Control.Concurrent.MVar
 
 import           Data.Monoid ((<>))
@@ -11,7 +10,6 @@ import qualified Data.Configurator as Config
 
 import           Data.Pool (Pool, createPool, withResource)
 import qualified Database.PostgreSQL.Simple as PG
-import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
 import qualified System.Environment as Env
 import qualified System.Posix.Signals as Signal
@@ -54,7 +52,7 @@ main = do
           5 -- maximum number of resources to keep open
 
       logInfo $ "Connecting to blockchain.info"
-      blockchainInfo interruptFlag
+      blockchainInfo interruptFlag pgPool
 
       readMVar interruptFlag
       logInfo "Terminating due to signal\n"
