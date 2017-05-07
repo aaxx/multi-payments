@@ -9,6 +9,7 @@ category:    Development
 dependencies:
   - base
   - aeson
+  - bytestring
   - configurator
   - containers
   - postgresql-simple
@@ -16,6 +17,7 @@ dependencies:
   - text
   - websockets
   - wuss
+  - unix
 
 default-extensions:
   - LambdaCase
