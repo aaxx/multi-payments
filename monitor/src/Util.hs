@@ -3,7 +3,6 @@ module Util where
 
 import           Control.Concurrent (threadDelay)
 import qualified Data.Aeson as Aeson
-import           Data.Aeson ((.=))
 import qualified Data.ByteString.Lazy as LB
 import           Data.Text (Text)
 import qualified Data.Text.IO as T

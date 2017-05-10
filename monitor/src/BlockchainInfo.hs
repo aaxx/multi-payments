@@ -9,9 +9,9 @@ import           Control.Lens hiding ((.=))
 
 import           Data.Aeson.Lens
 import           Data.Monoid ((<>))
+import           Data.Maybe (catMaybes)
 import qualified Data.Aeson as Aeson
 import           Data.Aeson ((.=))
-import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as LB
 import qualified Data.Vector as V
@@ -21,6 +21,7 @@ import           Network.HTTP.Client.TLS
 import qualified Network.WebSockets as WS
 import qualified Wuss
 
+import Types
 import Util
 
 
@@ -60,22 +61,23 @@ parseBlockHeader msg = maybe
 
 
 
-
-
-blockDetails :: BlockHash -> IO (Maybe BlockDetails)
+blockDetails :: BlockHash -> IO (Either String BlockDetails)
 blockDetails hash = do
+  -- FIXME: share manager (via IORef or TVar)
   tlsMgr <- newManager tlsManagerSettings
   rq  <- parseRequest $ "https://blockchain.info/rawblock/" <> T.unpack hash
   rsp <- httpLbs rq tlsMgr
+  let body = responseBody rsp
   -- FIXME: chk HTTP status
-  return $ do
-    b <- Aeson.decode $ responseBody rsp :: Maybe Aeson.Value
+  return $ maybe (Left $ "Malformed JSON" ++ show body) Right $ do
+    b <- Aeson.decode body :: Maybe Aeson.Value
     let mkOut o = (,)
           <$> (o ^? key "addr" . _String)
           <*> (o ^? key "value" . _Integral)
     let mkTx t = Tx
           <$> (t ^? key "hash" . _String)
-          <*> join (sequence . map mkOut . V.toList <$> (t ^? key "out" . _Array))
+          -- NB! skip outputs without address
+          <*> (catMaybes . map mkOut . V.toList <$> (t ^? key "out" . _Array))
     BlockDetails
       <$> (BlockHeader
         <$> pure "BTC"

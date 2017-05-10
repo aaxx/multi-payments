@@ -3,21 +3,24 @@
 
 module Main where
 
-import           Control.Monad.IO.Class (liftIO)
-import           Control.Monad (void)
+import           Control.Monad (void, forever, forM_)
 import           Control.Concurrent.MVar
+import           Control.Concurrent (forkIO)
 
 import           Data.Monoid ((<>))
+import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Configurator as Config
 
 import           Data.Pool (Pool, createPool, withResource)
 import qualified Database.PostgreSQL.Simple as PG
+import qualified Database.PostgreSQL.Simple.Notification as PG
 import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
 import qualified System.Environment as Env
 import qualified System.Posix.Signals as Signal
 
+import Types
 import BlockchainInfo
 import Util
 
@@ -34,7 +37,7 @@ main = getArgs $ \configPath -> do
     <*> Config.require conf "pg.pass"
     <*> Config.require conf "pg.db"
 
-  pgPool <- createPool (PG.connect cInfo) PG.close
+  pg <- createPool (PG.connect cInfo) PG.close
       1 -- number of distinct sub-pools
         -- time for which an unused resource is kept open
       (fromInteger 20) -- seconds
@@ -46,6 +49,13 @@ main = getArgs $ \configPath -> do
   void $ Signal.installHandler Signal.sigINT handleSig Nothing
   void $ Signal.installHandler Signal.sigTERM handleSig Nothing
 
+  void $ forkIO $ do
+    updateTransactions pg
+    forever
+      $ withResource pg PG.getNotification >>= \case
+        PG.Notification _ "new_block" "BTC" -> updateTransactions pg
+        _ -> return ()
+
   -- FIXME: forever reconnect
   logInfo "Get blocks from blockchain.info"
   subscribeForBlocks
@@ -53,9 +63,10 @@ main = getArgs $ \configPath -> do
       Left err -> logInfo $ T.pack err
       Right blk -> do
         print blk
-        saveBlockHeader pgPool blk
+        saveBlockHeader pg blk
     )
-    (readMVar interruptFlag >> sleep 3 >> return True)
+    (readMVar interruptFlag >> sleep 3 >> return False)
+
 
 
 
@@ -70,8 +81,36 @@ getArgs main' = do
 -- FIXME: handle possible PG error
 saveBlockHeader :: Pool PG.Connection -> BlockHeader -> IO ()
 saveBlockHeader pg (BlockHeader{..}) = do
-  void $ liftIO $ withResource pg $ \c -> PG.execute c
+  void $ withResource pg $ \c -> PG.execute c
     [sql| insert into block (currency, height, num_of_transactions, hash)
       values (?, ?, ?, ?)
     |]
     (currency, height, nTx, hash)
+  -- FIXME: use heigit to check for forks
+  -- (update set deprecated = true)
+
+
+updateTransactions :: Pool PG.Connection -> IO ()
+updateTransactions pg = do
+  freshBlocks <- withResource pg $ flip PG.query_
+    [sql|
+      select hash from block
+        where not deprecated
+          and not exists (select 1 from transaction where hash = block_hash)
+    |]
+
+  -- FIXME: handle errors
+  forM_ freshBlocks $ \[blkHash] -> do
+    logInfo $ "Fetch block details for " <> blkHash
+    blockDetails blkHash >>= \case
+      Left err -> logInfo $ T.pack err
+      Right BlockDetails{..} -> do
+        void $ withResource pg $ \c -> PG.executeMany c
+          [sql|
+            insert into transaction (currency, block_hash, tx_hash, to_addr, value )
+              values (?, ?, ?, ?, ?)
+          |]
+          [ ("BTC" :: Text, blkHash, txHash tx, addr, val)
+          | tx <- transactions
+          , (addr, val) <- txOuts tx
+          ]
