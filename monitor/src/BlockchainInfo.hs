@@ -1,12 +1,12 @@
 
+{-# LANGUAGE QuasiQuotes #-}
+
 module BlockchainInfo where
 
 import           Control.Concurrent (forkIO)
-import           Control.Concurrent.MVar
 import           Control.Monad (forever, void, join)
 import           Control.Lens hiding ((.=))
 
-import           Data.Maybe (fromMaybe)
 import           Data.Aeson.Lens
 import           Data.Monoid ((<>))
 import qualified Data.Aeson as Aeson
@@ -14,10 +14,7 @@ import           Data.Aeson ((.=))
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as LB
-
-import           Data.Pool (Pool, createPool, withResource)
-import qualified Database.PostgreSQL.Simple as PG
-import           Database.PostgreSQL.Simple.SqlQQ (sql)
+import qualified Data.Vector as V
 
 import           Network.HTTP.Client
 import           Network.HTTP.Client.TLS
@@ -27,43 +24,80 @@ import qualified Wuss
 import Util
 
 
-blockchainInfo :: MVar () -> Pool PG.Connection -> IO ()
-blockchainInfo intFlag pg = do
-  let bcInfo = "ws.blockchain.info"
-  Wuss.runSecureClient bcInfo 443 "/inv" $ \conn -> do
-    void . forkIO . forever
-      $ WS.receiveData conn >>= processBlock
-        >>= maybe (logInfo "Malformed json")
-          (saveBlockToPG pg)
 
-    void . forkIO . forever $ do
-      sleep 30
-      WS.sendPing conn $ json ["op" .= txt "ping"]
+subscribeForBlocks :: (Either String BlockHeader -> IO ()) -> IO Bool -> IO ()
+subscribeForBlocks handleResult continue
+  = Wuss.runSecureClient  "ws.blockchain.info" 443 "/inv" loop
+  where
+    loop conn = do
+      void . forkIO . forever
+        $ parseBlockHeader <$> WS.receiveData conn
+        >>= handleResult
 
-    WS.sendTextData conn $ json ["op" .= txt "blocks_sub"]
+      void . forkIO . forever $ do
+        sleep 30
+        WS.sendPing conn $ json ["op" .= txt "ping"]
 
-    readMVar intFlag
-    WS.sendClose conn $ txt "See ya!"
+      WS.sendTextData conn $ json ["op" .= txt "blocks_sub"]
 
-
-processBlock :: LB.ByteString -> IO (Maybe Aeson.Value)
-processBlock msg = do
-  let hash = do
-        jsn <- Aeson.decode msg :: Maybe Aeson.Value
-        "block" <- jsn ^? key "op"
-        jsn ^? key "x" . key "hash" . _String
-  fmap join $ sequence $ fmap detailedBlockInfo hash
+      continue >>= \case
+        True -> loop conn
+        False -> WS.sendClose conn $ txt "See ya!"
 
 
-detailedBlockInfo :: Text -> IO (Maybe Aeson.Value)
-detailedBlockInfo hash = do -- logInfo hash >> return (Aeson.toJSON ())
+parseBlockHeader :: LB.ByteString -> Either String BlockHeader
+parseBlockHeader msg = maybe
+  (Left $ "Malformed JSON" ++ show msg)
+  Right
+  $ do
+    jsn <- Aeson.decode msg :: Maybe Aeson.Value
+    "block" <- jsn ^? key "op"
+    BlockHeader
+      <$> pure "BTC"
+      <*> (jsn ^? key "x" . key "hash" . _String)
+      <*> (jsn ^? key "x" . key "height" . _Integral)
+      <*> (jsn ^? key "x" . key "nTx" . _Integral)
+
+
+
+type BlockHash = Text
+
+data BlockHeader = BlockHeader
+  { currency :: Text
+  , hash :: BlockHash
+  , height :: Int
+  , nTx :: Int
+  }
+
+data BlockDetails = BlockDetails
+  { header :: BlockHeader
+  , transactions :: [Tx]
+  }
+
+data Tx = Tx
+  { txHash :: Text
+  , txOuts :: [(Text, Int)]
+  }
+
+
+blockDetails :: BlockHash -> IO (Maybe BlockDetails)
+blockDetails hash = do
   tlsMgr <- newManager tlsManagerSettings
   rq  <- parseRequest $ "https://blockchain.info/rawblock/" <> T.unpack hash
   rsp <- httpLbs rq tlsMgr
-  -- FIXME: chk status
-  return $ Aeson.decode $ responseBody rsp
-
-
-saveBlockToPG :: Pool PG.Connection -> Aeson.Value -> IO ()
-saveBlockToPG pg val = print val
-
+  -- FIXME: chk HTTP status
+  return $ do
+    b <- Aeson.decode $ responseBody rsp :: Maybe Aeson.Value
+    let mkOut o = (,)
+          <$> (o ^? key "addr" . _String)
+          <*> (o ^? key "value" . _Integral)
+    let mkTx t = Tx
+          <$> (t ^? key "hash" . _String)
+          <*> join (sequence . map mkOut . V.toList <$> (t ^? key "out" . _Array))
+    BlockDetails
+      <$> (BlockHeader
+        <$> pure "BTC"
+        <*> (b ^? key "hash" . _String)
+        <*> (b ^? key "height" . _Integral)
+        <*> (b ^? key "n_tx" . _Integral))
+      <*> join (sequence . map mkTx . V.toList <$> (b ^? key "tx" . _Array))

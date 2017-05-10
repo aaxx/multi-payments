@@ -20,6 +20,7 @@ dependencies:
   - resource-pool
   - text
   - unix
+  - vector
   - websockets
   - wuss
 
