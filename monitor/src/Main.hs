@@ -23,46 +23,48 @@ import Util
 
 
 main :: IO ()
-main = do
+main = getArgs $ \configPath -> do
+  logInfo $ "Reading config from " <> T.pack configPath
+  conf <- Config.load [Config.Required configPath]
+  logInfo "Connect to Postgresql"
+  cInfo <- PG.ConnectInfo
+    <$> Config.require conf "pg.host"
+    <*> Config.require conf "pg.port"
+    <*> Config.require conf "pg.user"
+    <*> Config.require conf "pg.pass"
+    <*> Config.require conf "pg.db"
+
+  pgPool <- createPool (PG.connect cInfo) PG.close
+      1 -- number of distinct sub-pools
+        -- time for which an unused resource is kept open
+      (fromInteger 20) -- seconds
+      5 -- maximum number of resources to keep open
+
+  -- handle interrupts gracefully
+  interruptFlag <- newEmptyMVar :: IO (MVar ())
+  let handleSig = Signal.Catch $ putMVar interruptFlag ()
+  void $ Signal.installHandler Signal.sigINT handleSig Nothing
+  void $ Signal.installHandler Signal.sigTERM handleSig Nothing
+
+  -- FIXME: forever reconnect
+  logInfo "Get blocks from blockchain.info"
+  subscribeForBlocks
+    (\case
+      Left err -> logInfo $ T.pack err
+      Right blk -> do
+        print blk
+        saveBlockHeader pgPool blk
+    )
+    (readMVar interruptFlag >> sleep 3 >> return True)
+
+
+
+getArgs :: (String -> IO ()) -> IO ()
+getArgs main' = do
   prog <- Env.getProgName
   Env.getArgs >>= \case
-    [configPath] -> do
-
-      logInfo $ "Reading config from " <> T.pack configPath
-      conf <- Config.load [Config.Required configPath]
-      logInfo "Connect to Postgresql"
-      cInfo <- PG.ConnectInfo
-        <$> Config.require conf "pg.host"
-        <*> Config.require conf "pg.port"
-        <*> Config.require conf "pg.user"
-        <*> Config.require conf "pg.pass"
-        <*> Config.require conf "pg.db"
-
-      pgPool <- createPool (PG.connect cInfo) PG.close
-          1 -- number of distinct sub-pools
-            -- time for which an unused resource is kept open
-          (fromInteger 20) -- seconds
-          5 -- maximum number of resources to keep open
-
-      -- handle interrupts gracefully
-      interruptFlag <- newEmptyMVar :: IO (MVar ())
-      let handleSig = Signal.Catch $ putMVar interruptFlag ()
-      void $ Signal.installHandler Signal.sigINT handleSig Nothing
-      void $ Signal.installHandler Signal.sigTERM handleSig Nothing
-
-
-      logInfo "Get blocks from blockchain.info"
-      subscribeForBlocks
-        (\case
-          Left err -> logInfo $ T.pack err
-          Right blk -> do
-            logInfo $ hash blk
-            saveBlockHeader pgPool blk
-        )
-        (readMVar interruptFlag >> sleep 3 >> return True)
-
+    [configPath] -> main' configPath
     _ -> error $ "Usage: " ++ prog ++ " <config.conf>"
-
 
 
 -- FIXME: handle possible PG error

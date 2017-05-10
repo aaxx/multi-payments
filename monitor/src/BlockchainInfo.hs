@@ -60,24 +60,6 @@ parseBlockHeader msg = maybe
 
 
 
-type BlockHash = Text
-
-data BlockHeader = BlockHeader
-  { currency :: Text
-  , hash :: BlockHash
-  , height :: Int
-  , nTx :: Int
-  }
-
-data BlockDetails = BlockDetails
-  { header :: BlockHeader
-  , transactions :: [Tx]
-  }
-
-data Tx = Tx
-  { txHash :: Text
-  , txOuts :: [(Text, Int)]
-  }
 
 
 blockDetails :: BlockHash -> IO (Maybe BlockDetails)
