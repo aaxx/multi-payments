@@ -11,6 +11,7 @@ import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
 import qualified Data.Configurator as Config
+import           Data.List.Split (chunksOf)
 
 import           Data.Pool (Pool, createPool, withResource)
 import qualified Database.PostgreSQL.Simple as PG
@@ -49,10 +50,12 @@ main = getArgs $ \configPath -> do
   void $ Signal.installHandler Signal.sigINT handleSig Nothing
   void $ Signal.installHandler Signal.sigTERM handleSig Nothing
 
-  void $ forkIO $ do
+  -- double `forever` is to use fresh connection in case of exception
+  void $ forkIO $ forever $ do
     updateTransactions pg
-    forever
-      $ withResource pg PG.getNotification >>= \case
+    withResource pg $ \c -> forever $ do
+      void $ PG.execute_ c [sql| listen new_block |]
+      PG.getNotification c >>= \case
         PG.Notification _ "new_block" "BTC" -> updateTransactions pg
         _ -> return ()
 
@@ -69,13 +72,13 @@ main = getArgs $ \configPath -> do
 
 
 
-
 getArgs :: (String -> IO ()) -> IO ()
 getArgs main' = do
   prog <- Env.getProgName
   Env.getArgs >>= \case
     [configPath] -> main' configPath
     _ -> error $ "Usage: " ++ prog ++ " <config.conf>"
+
 
 
 -- FIXME: handle possible PG error
@@ -86,8 +89,9 @@ saveBlockHeader pg (BlockHeader{..}) = do
       values (?, ?, ?, ?)
     |]
     (currency, height, nTx, hash)
-  -- FIXME: use heigit to check for forks
+  -- FIXME: use height to check for forks
   -- (update set deprecated = true)
+
 
 
 updateTransactions :: Pool PG.Connection -> IO ()
@@ -100,17 +104,22 @@ updateTransactions pg = do
     |]
 
   -- FIXME: handle errors
+  -- FIXME: beware of stalled HTTP queries
   forM_ freshBlocks $ \[blkHash] -> do
     logInfo $ "Fetch block details for " <> blkHash
     blockDetails blkHash >>= \case
       Left err -> logInfo $ T.pack err
       Right BlockDetails{..} -> do
-        void $ withResource pg $ \c -> PG.executeMany c
-          [sql|
-            insert into transaction (currency, block_hash, tx_hash, to_addr, value )
-              values (?, ?, ?, ?, ?)
-          |]
-          [ ("BTC" :: Text, blkHash, txHash tx, addr, val)
-          | tx <- transactions
-          , (addr, val) <- txOuts tx
-          ]
+        let outs =
+              [ ("BTC" :: Text, blkHash, txHash tx, addr, val)
+              | tx <- transactions
+              , (addr, val) <- txOuts tx
+              ]
+        forM_ (chunksOf 512 outs) $ \chunk ->
+          -- FIXME: check result == length chunk
+          void $ withResource pg $ \c -> PG.executeMany c
+            [sql|
+              insert into transaction (currency, block_hash, tx_hash, to_addr, value)
+                values (?, ?, ?, ?, ?)
+            |]
+            chunk

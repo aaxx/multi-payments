@@ -43,8 +43,7 @@ create trigger notify_new_block
 
 
 create table transaction
-  ( ctime timestamptz not null default now()
-  , currency currency_code not null
+  ( currency currency_code not null
   , value int8 not null
   , block_hash text not null references block(hash)
   , tx_hash text not null

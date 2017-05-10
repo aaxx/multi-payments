@@ -18,6 +18,7 @@ dependencies:
   - lens-aeson
   - postgresql-simple
   - resource-pool
+  - split
   - text
   - unix
   - vector
