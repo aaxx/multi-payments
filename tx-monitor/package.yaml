@@ -1,6 +1,6 @@
-name:        monitor
+name:        tx-monitor
 version:     "0.0"
-synopsis:    Monitors addresses and transactions
+synopsis:    Monitor currency transactions
 license:     MIT
 author:      Max Taldykin
 maintainer:  <max@formalmethods.ru>
@@ -40,6 +40,6 @@ ghc-options:
   - -funbox-strict-fields
 
 executables:
-  monitor:
+  tx-monitor:
     source-dirs: src
     main: Main.hs
