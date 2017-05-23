@@ -43,12 +43,33 @@ create trigger notify_new_block
 
 
 create table transaction
-  ( currency currency_code not null
+  ( ctime timestamptz not null default now()
+  , currency currency_code not null
   , value int8 not null
   , block_hash text not null references block(hash)
   , tx_hash text not null
   , to_addr text not null
   );
 
+
+create table token_emission
+  ( ctime timestamptz not null default now()
+  , currency currency_code not null
+  , block_height int not null -- chk enough tx validations
+  , cur_rate int references currency_rate(id)
+  , cur_value int8 not null
+  , snm_value int8 not null
+  , tx_hash text unique not null -- ICO.foreignBuy
+  , tx_result json not null default '{}'
+  );
+
+
+create table currency_rate
+  ( id serial primary key
+  , ctime timestamptz not null default now()
+  , currency currency_code not null
+  , rate uint8 not null -- 1e-18 SNM per *base* currency unit
+  , source text
+  );
 
 -- TODO: grant permissions
