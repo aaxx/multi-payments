@@ -9,7 +9,6 @@ category:    Development
 dependencies:
   - base
   - aeson
-  - configurator
   - containers
   - http-types
   - postgresql-simple
