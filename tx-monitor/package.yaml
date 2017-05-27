@@ -10,7 +10,6 @@ dependencies:
   - base
   - aeson
   - bytestring
-  - configurator
   - containers
   - http-client
   - http-client-tls

@@ -10,7 +10,6 @@ import           Control.Concurrent (forkIO)
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
 import qualified Data.Text as T
-import qualified Data.Configurator as Config
 import           Data.List.Split (chunksOf)
 
 import           Data.Pool (Pool, createPool, withResource)
@@ -18,7 +17,6 @@ import qualified Database.PostgreSQL.Simple as PG
 import qualified Database.PostgreSQL.Simple.Notification as PG
 import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
-import qualified System.Environment as Env
 import qualified System.Posix.Signals as Signal
 
 import Types
@@ -27,18 +25,8 @@ import Util
 
 
 main :: IO ()
-main = getArgs $ \configPath -> do
-  logInfo $ "Reading config from " <> T.pack configPath
-  conf <- Config.load [Config.Required configPath]
-  logInfo "Connect to Postgresql"
-  cInfo <- PG.ConnectInfo
-    <$> Config.require conf "pg.host"
-    <*> Config.require conf "pg.port"
-    <*> Config.require conf "pg.user"
-    <*> Config.require conf "pg.pass"
-    <*> Config.require conf "pg.db"
-
-  pg <- createPool (PG.connect cInfo) PG.close
+main = do
+  pg <- createPool (PG.connectPostgreSQL "") PG.close
       1 -- number of distinct sub-pools
         -- time for which an unused resource is kept open
       (fromInteger 20) -- seconds
@@ -69,16 +57,6 @@ main = getArgs $ \configPath -> do
         saveBlockHeader pg blk
     )
     (readMVar interruptFlag >> sleep 3 >> return False)
-
-
-
-getArgs :: (String -> IO ()) -> IO ()
-getArgs main' = do
-  prog <- Env.getProgName
-  Env.getArgs >>= \case
-    [configPath] -> main' configPath
-    _ -> error $ "Usage: " ++ prog ++ " <config.conf>"
-
 
 
 -- FIXME: handle possible PG error
