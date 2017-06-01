@@ -1,0 +1,16 @@
+version: '3.2'
+services:
+  info:
+    container_name: sonm-ico-info
+    build: info
+    ports:
+      - "1234:8000"
+    env_file:
+      - ./pg.env
+      - ./info/secret.env
+  tx-monitor:
+    container_name: sonm-ico-tx-monitor
+    build: tx-monitor
+    env_file:
+      - ./pg.env
+      - ./tx-monitor/secret.env
