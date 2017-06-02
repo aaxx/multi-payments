@@ -26,9 +26,6 @@ dependencies:
 
 default-extensions:
   - LambdaCase
-  - FlexibleContexts
-  - FlexibleInstances
-  - MultiParamTypeClasses
   - OverloadedStrings
   - RecordWildCards
 
