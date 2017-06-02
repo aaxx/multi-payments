@@ -1,0 +1,38 @@
+name:        price-monitor
+version:     "0.0"
+synopsis:    ICO multi currency payments
+license:     MIT
+author:      Max Taldykin
+maintainer:  <max@formalmethods.ru>
+category:    Development
+
+dependencies:
+  - base
+  - aeson
+  - async
+  - containers
+  - http-client
+  - http-client-tls
+  - http-types
+  - lens
+  - lens-aeson
+  - postgresql-simple
+  - resource-pool
+  - text
+  - vector
+
+default-extensions:
+  - LambdaCase
+  - OverloadedStrings
+  - RecordWildCards
+
+ghc-options:
+  - -Wall
+  - -threaded
+  - -O2
+  - -funbox-strict-fields
+
+executables:
+  price-monitor:
+    source-dirs: src
+    main: Main.hs

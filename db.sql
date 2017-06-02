@@ -1,6 +1,15 @@
 
 
-create type currency_code as enum ('BTC', 'LTC', 'DASH');
+create type currency_code as enum
+  ( 'BTC'
+  , 'LTC'
+  , 'DASH'
+  , 'XMR'
+  , 'ETH'
+  , 'ETC'
+  , 'TIME'
+  , 'SNM'
+  );
 
 
 create table address
@@ -52,11 +61,18 @@ create table transaction
   );
 
 
+create table price
+  ( id serial primary key
+  , ctime timestamptz not null default now()
+  , currency currency_code not null
+  , price numeric(12,9) not null
+  );
+
 create table token_emission
   ( ctime timestamptz not null default now()
   , currency currency_code not null
   , block_height int not null -- chk enough tx validations
-  , cur_rate int references currency_rate(id)
+  , price int references price(id)
   , cur_value int8 not null
   , snm_value int8 not null
   , tx_hash text unique not null -- ICO.foreignBuy
@@ -64,12 +80,5 @@ create table token_emission
   );
 
 
-create table currency_rate
-  ( id serial primary key
-  , ctime timestamptz not null default now()
-  , currency currency_code not null
-  , rate uint8 not null -- 1e-18 SNM per *base* currency unit
-  , source text
-  );
 
 -- TODO: grant permissions
