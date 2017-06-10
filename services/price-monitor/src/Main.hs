@@ -21,7 +21,7 @@ import           Data.Pool (createPool, withResource)
 import qualified Database.PostgreSQL.Simple as PG
 import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
-import           System.Environment (lookupEnv)
+import           System.Environment (lookupEnv, getEnv)
 
 import qualified Network.HTTP.Client as H
 import qualified Network.HTTP.Client.TLS as HS
@@ -35,12 +35,18 @@ trackedCurrencies = ["LTC", "ETH", "ETC", "DASH", "XMR", "TIME"]
 
 main :: IO ()
 main = do
-  logInfo "Start" ()
   loopInterval <- maybe 666 read <$> lookupEnv "LOOP_INTERVAL_SECONDS"
 
+  pgConn <- PG.ConnectInfo
+    <$> getEnv "RDS_HOSTNAME"
+    <*> (read <$> getEnv "RDS_PORT")
+    <*> getEnv "RDS_USERNAME"
+    <*> getEnv "RDS_PASSWORD"
+    <*> getEnv "RDS_DB_NAME"
+
   -- create pool & check PG connection
-  pgPool <- createPool (PG.connectPostgreSQL "") PG.close 1 (fromInteger 20) 5
-  [[True]] <- withResource pgPool $ flip PG.query_ [sql| select true |]
+  pg <- createPool (PG.connect pgConn) PG.close 1 (fromInteger 20) 5
+  [[True]] <- withResource pg $ flip PG.query_ [sql| select true |]
 
   tlsMgr <- H.newManager HS.tlsManagerSettings
   rq     <- H.parseRequest "https://api.coinmarketcap.com/v1/ticker/?limit=100"
@@ -61,7 +67,7 @@ main = do
                   , sym `elem` trackedCurrencies
                   ]
           logInfo "Coinmarcetcap" prices
-          void $ withResource pgPool $ \c -> PG.executeMany c
+          void $ withResource pg $ \c -> PG.executeMany c
             [sql| insert into price (currency, price) values (?,?) |]
             prices
 
