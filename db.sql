@@ -16,6 +16,7 @@ create table address
   ( currency currency_code not null
   , addr text unique not null
   );
+-- imposed index on addr
 
 
 create table invoice
@@ -26,6 +27,7 @@ create table invoice
   , to_eth_addr text not null
   , constraint invoice_unique_addr unique (to_eth_addr, currency)
   );
+-- imposed index on (to_eth_addr, currency)
 
 
 create table block
@@ -67,6 +69,16 @@ create table price
   , currency currency_code not null
   , price numeric(12,9) not null
   );
+create index price_ctime_ix on price(ctime);
+
+
+create table price_correction
+  ( id serial primary key
+  , ctime timestamptz not null default now()
+  , currency currency_code not null
+  , factor numeric(12,9) not null
+  );
+
 
 create table token_emission
   ( ctime timestamptz not null default now()
@@ -78,7 +90,3 @@ create table token_emission
   , tx_hash text unique not null -- ICO.foreignBuy
   , tx_result json not null default '{}'
   );
-
-
-
--- TODO: grant permissions
