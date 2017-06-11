@@ -1,4 +1,4 @@
-name:        info
+name:        api
 version:     "0.0"
 synopsis:    ICO multi currency payments
 license:     MIT
@@ -29,6 +29,6 @@ ghc-options:
   - -funbox-strict-fields
 
 executables:
-  info:
+  api:
     source-dirs: src
     main: Main.hs

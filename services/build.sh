@@ -12,7 +12,7 @@ function build {
   cd -
 }
 
-build info
+build api
 build price-monitor
 # build invoice
 # build tx-monitor

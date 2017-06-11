@@ -4,7 +4,7 @@
   "containerDefinitions": [
     {
       "name": "info",
-      "image": "jorpic/sonm-ico-info:latest",
+      "image": "jorpic/sonm-ico-api:latest",
       "essential": true,
       "memory": 256,
       "mountPoints": [],

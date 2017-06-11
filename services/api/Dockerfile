@@ -1,4 +1,4 @@
 FROM jorpic/sonm-ico-base:latest
-ADD bin/info /
-CMD env && /info
+ADD bin/api /
+CMD /api
 EXPOSE 8000
