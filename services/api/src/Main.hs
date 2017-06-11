@@ -3,7 +3,7 @@
 
 module Main where
 
-import           Control.Monad.IO.Class (liftIO)
+import           Control.Monad.IO.Class (MonadIO, liftIO)
 
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -51,6 +51,26 @@ httpServer pg = do
       $ flip PG.query_ [sql| select ico_info() |]
     json (res :: Aeson.Value)
 
+  post "/invoice/:curr/:ethAddr" $ do
+    currency <- txt <$> param "curr"
+    ethAddr  <- txt <$> param "ethAddr"
+    logInfo "Invoice" (currency, ethAddr)
+
+    -- TODO: chk currency
+    -- TODO: chk address format (& checksum)
+    -- TODO: normalize address
+    -- TODO: get referrer & session form cookies
+    -- TODO: enable CORS
+
+    res <- liftIO $ withResource pg $ \c -> PG.query c
+      [sql| select create_invoice(?, ?) |]
+      (currency, ethAddr)
+
+    case res of
+      [[jsn]] -> json (jsn :: Aeson.Value)
+      [] -> text "{\"error\": \"Sudden lack of free addresses\"}"
+      _  -> logError "invoice: unexpected result" res
+
   get "/env"
     $ liftIO getEnvironment
     >>= json . Aeson.object
@@ -64,8 +84,8 @@ httpServer pg = do
 txt :: Text -> Text
 txt = id
 
-logInfo :: Show a => Text -> a -> IO ()
-logInfo m a = T.putStrLn $ m <> " >> " <> T.pack (show a)
+logInfo :: (MonadIO m, Show a) => Text -> a -> m ()
+logInfo m a = liftIO $ T.putStrLn $ m <> " >> " <> T.pack (show a)
 
-logError :: Show a => Text -> a -> IO ()
-logError m a = T.putStrLn $ "ERROR: " <> m <> " >> " <> T.pack (show a)
+logError :: (MonadIO m, Show a) => Text -> a -> m ()
+logError m a = liftIO $ T.putStrLn $ "ERROR: " <> m <> " >> " <> T.pack (show a)

@@ -14,5 +14,4 @@ function build {
 
 build api
 build price-monitor
-# build invoice
 # build tx-monitor

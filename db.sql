@@ -146,12 +146,27 @@ create function ico_info() returns json as $$
               left outer join raised r on (r.currency = p.currency)
           ) i),
     snm_sold as (
-      select sum(value) as value from transaction where currency = 'SNM'),
-    result as (
-      select
-          ico_config.snm_total_limit as "snmTokenAmount",
-          coalesce(snm_sold.value, 0) :: text as "snmTokenSold",
-          instruments.arr as instruments
-        from instruments, snm_sold, ico_config)
-    select row_to_json(r.*) from result r;
+      select sum(value) as value from transaction where currency = 'SNM')
+    select json_build_object(
+          'snmTokenAmount', ico_config.snm_total_limit,
+          'snmTokenSold', coalesce(snm_sold.value, 0) :: text,
+          'instruments', instruments.arr)
+        from instruments, snm_sold, ico_config;
 $$ language sql immutable;
+
+
+create function create_invoice(cur currency_code, eth_addr text) returns json as $$
+  insert into invoice (currency, from_addr, to_eth_addr)
+    select a.currency, a.addr, eth_addr
+      from address a left join invoice i on (a.addr = i.from_addr)
+      where a.currency = cur
+        and (to_eth_addr is null or to_eth_addr = eth_addr)
+      order by to_eth_addr nulls last
+      limit 1
+    on conflict on constraint invoice_unique_addr
+      do update set last_activity = now()
+    returning json_build_object(
+      'ethAddress', to_eth_addr,
+      'depositAddress', from_addr,
+      'currency', currency)
+$$ language sql;
