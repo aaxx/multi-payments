@@ -1,0 +1,28 @@
+{
+  "AWSEBDockerrunVersion": 2,
+  "volumes": [],
+  "containerDefinitions": [
+    {
+      "name": "info",
+      "image": "jorpic/sonm-ico-info:latest",
+      "essential": true,
+      "memory": 256,
+      "mountPoints": [],
+      "portMappings": [
+        {
+          "hostPort": 80,
+          "containerPort": 8000
+        }
+      ]
+    },
+    {
+      "name": "price-monitor",
+      "image": "jorpic/sonm-ico-price-monitor:latest",
+      "essential": false,
+      "memory": 256,
+      "mountPoints": [],
+      "portMappings": []
+    }
+  ]
+}
+
