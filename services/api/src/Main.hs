@@ -19,6 +19,8 @@ import qualified Database.PostgreSQL.Simple as PG
 import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
 import           Web.Scotty
+import           Network.Wai.Middleware.Cors
+
 
 
 const_HTTP_PORT :: Int
@@ -44,10 +46,13 @@ main = do
 
 httpServer :: Pool PG.Connection -> ScottyM ()
 httpServer pg = do
+  let corsPolicy = simpleCorsResourcePolicy
+  middleware $ cors (const $ Just corsPolicy)
+
   get "/" $ text "Ok"
 
   get "/config" $ do
-    [[res]] <- liftIO $ withResource pg
+    [[res]] <- liftAndCatchIO $ withResource pg
       $ flip PG.query_ [sql| select ico_info() |]
     json (res :: Aeson.Value)
 
@@ -62,14 +67,16 @@ httpServer pg = do
     -- TODO: get referrer & session form cookies
     -- TODO: enable CORS
 
-    res <- liftIO $ withResource pg $ \c -> PG.query c
+    res <- liftAndCatchIO $ withResource pg $ \c -> PG.query c
       [sql| select create_invoice(?, ?) |]
       (currency, ethAddr)
 
     case res of
-      [[jsn]] -> json (jsn :: Aeson.Value)
-      [] -> text "{\"error\": \"Sudden lack of free addresses\"}"
-      _  -> logError "invoice: unexpected result" res
+      [[Just jsn]] -> json (jsn :: Aeson.Value)
+      [[Nothing]] -> json (Aeson.object ["error" .= txt "Sudden lack of free addresses"])
+      _  -> do
+        logError "invoice: unexpected query result" res
+        raise "Unexpected query result"
 
   get "/env"
     $ liftIO getEnvironment
