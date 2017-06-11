@@ -80,6 +80,14 @@ create table price_correction
   );
 
 
+create table currency_limit
+  ( currency currency_code not null
+  , ctime timestamptz not null default now()
+  , soft_limit int8 not null
+  , hard_limit int8 not null
+  );
+
+
 create table token_emission
   ( ctime timestamptz not null default now()
   , currency currency_code not null
@@ -90,3 +98,52 @@ create table token_emission
   , tx_hash text unique not null -- ICO.foreignBuy
   , tx_result json not null default '{}'
   );
+
+
+create table ico_config
+  ( snm_total_limit int8 not null default 444000000
+  , snm_ico_limit int8 not null default 331360000
+  , snm_per_eth int8 not null default 2424
+  );
+insert into ico_config default values;
+
+
+create function ico_info() returns json as $$
+  with
+    prices as (
+      select distinct on (currency)
+          currency, price
+        from price
+        order by currency, ctime desc),
+    limits as (
+      select distinct on (currency)
+          currency, hard_limit
+        from currency_limit
+        order by currency, ctime desc),
+    raised as (
+      select currency, sum(cur_value) as sum
+        from token_emission
+        group by currency
+    ),
+    instruments as (
+      select json_agg(row_to_json(i.*)) as arr
+        from (
+          select
+              p.currency as "name",
+              price :: text,
+              hard_limit :: text as "totalAmount",
+              coalesce(r.sum, 0) :: text as raised
+            from prices p
+              left outer join limits l on (p.currency = l.currency)
+              left outer join raised r on (r.currency = p.currency)
+          ) i),
+    snm_sold as (
+      select sum(value) as value from transaction where currency = 'SNM'),
+    result as (
+      select
+          ico_config.snm_total_limit as "snmTokenAmount",
+          coalesce(snm_sold.value, 0) :: text as "snmTokenSold",
+          instruments.arr as instruments
+        from instruments, snm_sold, ico_config)
+    select row_to_json(r.*) from result r;
+$$ language sql immutable;
