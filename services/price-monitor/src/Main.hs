@@ -30,7 +30,7 @@ import qualified Network.HTTP.Types.Status as HTTP
 
 
 trackedCurrencies :: [Text]
-trackedCurrencies = ["LTC", "ETH", "ETC", "DASH", "XMR", "TIME"]
+trackedCurrencies = ["BTC", "LTC", "ETH", "ETC", "DASH", "XMR", "TIME"]
 
 
 main :: IO ()
@@ -49,7 +49,7 @@ main = do
   [[True]] <- withResource pg $ flip PG.query_ [sql| select true |]
 
   tlsMgr <- H.newManager HS.tlsManagerSettings
-  rq     <- H.parseRequest "https://api.coinmarketcap.com/v1/ticker/?limit=100"
+  rq     <- H.parseRequest "https://api.coinmarketcap.com/v1/ticker/"
 
   thread <- async $ forever $ do
     handle (\e -> logError "Exception catched" (e :: SomeException)) $ do
