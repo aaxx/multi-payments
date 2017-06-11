@@ -46,6 +46,11 @@ httpServer :: Pool PG.Connection -> ScottyM ()
 httpServer pg = do
   get "/" $ text "Ok"
 
+  get "/config" $ do
+    [[res]] <- liftIO $ withResource pg
+      $ flip PG.query_ [sql| select ico_info() |]
+    json (res :: Aeson.Value)
+
   get "/env"
     $ liftIO getEnvironment
     >>= json . Aeson.object
