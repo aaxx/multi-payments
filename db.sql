@@ -163,7 +163,14 @@ create function ico_info() returns json as $$
           'snmTokenAmount', ico_config.snm_total_limit,
           'snmTokenSold', coalesce(snm_sold.value, 0) :: text,
           'instruments', instruments.arr)
-        from instruments, snm_sold, ico_config;
+        from instruments, snm_sold, ico_config
+$$ language sql immutable;
+
+
+create function addr_info(eth_addr text) returns json as $$
+  select json_build_object(
+    'snmBalance', '0',
+    'tx', json_build_object())
 $$ language sql immutable;
 
 
