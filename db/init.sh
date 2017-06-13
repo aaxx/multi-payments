@@ -1,3 +1,4 @@
-#! /bin/bash
+#! /bin/bash -e
 
-ls *sql | sort | xargs cat | psql -h $PG_HOST -U $PG_USER $PG_DATABASE
+PSQL="psql -h $RDS_HOSTNAME -U $RDS_USERNAME $RDS_DB_NAME"
+ls *sql | sort | xargs cat | ${PSQL}

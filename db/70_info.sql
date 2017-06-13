@@ -1,14 +1,8 @@
 create function ico_info() returns json as $$
   with
-    limits as (
-      select distinct on (currency)
-          currency, hard_limit
-        from currency_limit
-        order by currency, ctime desc),
     raised as (
-      select currency, sum(cur_value) as sum
-        from token_emission
-        group by currency
+      select currency, sum(value) as sum
+        from transaction where confirmed group by currency
     ),
     instruments as (
       select json_agg(row_to_json(i.*)) as arr
@@ -16,10 +10,10 @@ create function ico_info() returns json as $$
           select
               p.currency as name,
               p.snm_per_unit :: text as price,
-              hard_limit :: text as "totalAmount",
+              l.hard_limit :: text as "totalAmount",
               coalesce(r.sum, 0) :: text as raised
             from actual_price p
-              left outer join limits l on (p.currency = l.currency)
+              left outer join currency_limit l on (p.currency = l.currency)
               left outer join raised r on (r.currency = p.currency)
           ) i),
     snm_sold as (
