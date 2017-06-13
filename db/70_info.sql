@@ -1,3 +1,17 @@
+
+create function fmt_precise_number(x numeric) returns text as $$
+  select to_char(x, 'FM9999999999999999D99999999')
+$$ language sql immutable;
+
+create function fmt_number(x numeric) returns text as $$
+  select to_char(x, 'FM9999999999999999D999')
+$$ language sql immutable;
+
+create function fmt_utc(x timestamptz) returns text as $$
+  select to_char(x at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SSZ')
+$$ language sql immutable;
+
+
 create function ico_info() returns json as $$
   with
     raised as (
@@ -9,9 +23,9 @@ create function ico_info() returns json as $$
         from (
           select
               p.currency as name,
-              p.snm_per_unit :: text as price,
-              l.hard_limit :: text as "totalAmount",
-              coalesce(r.sum, 0) :: text as raised
+              fmt_precise_number(p.snm_per_unit) as price,
+              fmt_number(l.hard_limit) as "totalAmount",
+              fmt_number(coalesce(r.sum, 0)) as raised
             from actual_price p
               left outer join currency_limit l on (p.currency = l.currency)
               left outer join raised r on (r.currency = p.currency)
@@ -19,8 +33,8 @@ create function ico_info() returns json as $$
     snm_sold as (
       select sum(value) as value from transaction where currency = 'SNM')
     select json_build_object(
-          'snmTokenAmount', ico_config.snm_total_limit,
-          'snmTokenSold', coalesce(snm_sold.value, 0) :: text,
+          'snmTokenAmount', fmt_number(ico_config.snm_ico_limit),
+          'snmTokenSold', fmt_number(coalesce(snm_sold.value, 0)),
           'instruments', instruments.arr)
         from instruments, snm_sold, ico_config
 $$ language sql immutable;
@@ -29,11 +43,11 @@ $$ language sql immutable;
 create view transactions_by_addr as
   -- completed transactions
   (select
-      to_char(t.ctime at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SSZ') as "datatime",
-      t.value as "snmValue",
+      fmt_utc(t.ctime) as "datatime",
+      fmt_precise_number(t.value) as "snmValue",
       coalesce(src1.currency, src2.currency) :: text as currency,
-      coalesce(src1.value, src2.value) :: text as amount,
-      coalesce(src1.tx_hash, src2.tx_hash) as "txHash",
+      fmt_precise_number(coalesce(src1.value, src2.value)) as amount,
+      coalesce(src1.tx_hash, src2.tx_hash) as "txLink",
       'confirmed' :: text as status,
       t.deposit_addr as "snmAddr"
     from transaction t
@@ -45,31 +59,14 @@ create view transactions_by_addr as
   union all
   -- not completed transactions
   select
-      to_char(t.ctime at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SSZ') as "datatime",
+      fmt_utc(t.ctime) as "datatime",
       null as "snmValue",
       t.currency :: text as currency,
-      t.value :: text as amount,
-      t.tx_hash as "txHash",
+      fmt_precise_number(t.value) as amount,
+      t.tx_hash as "txLink",
       'not confirmed' as status,
       i.snm_addr as "snmAddr"
     from transaction t
       join invoice i on (i.deposit_addr = t.deposit_addr)
       -- where not confirmed;
 ;
-
-
-
-
-create function addr_info(eth_addr text) returns json as $$
-  select json_build_object(
-    'snmBalance', '0',
-    'tx', json_build_object(
-      'BTC', ''
-      'LTC', ''
-      'DASH', ''
-      'XMR', ''
-      'ETH', ''
-      'ETC', ''
-      'TIME', ''
-    ))
-$$ language sql immutable;
