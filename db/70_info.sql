@@ -29,11 +29,12 @@ $$ language sql immutable;
 create view transactions_by_addr as
   -- completed transactions
   (select
-      t.ctime as "datatime",
+      to_char(t.ctime at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SSZ') as "datatime",
       t.value as "snmValue",
-      coalesce(src1.currency, src2.currency) as currency,
-      coalesce(src1.value, src2.value) as amount,
-      'confirmed' as status,
+      coalesce(src1.currency, src2.currency) :: text as currency,
+      coalesce(src1.value, src2.value) :: text as amount,
+      coalesce(src1.tx_hash, src2.tx_hash) as "txHash",
+      'confirmed' :: text as status,
       t.deposit_addr as "snmAddr"
     from transaction t
       left outer join token_emission e on (t.tx_hash = e.tx_hash)
@@ -44,10 +45,11 @@ create view transactions_by_addr as
   union all
   -- not completed transactions
   select
-      t.ctime as "datatime",
+      to_char(t.ctime at time zone 'UTC', 'YYYY-MM-DD HH24:MI:SSZ') as "datatime",
       null as "snmValue",
-      t.currency as currency,
-      t.value as amount,
+      t.currency :: text as currency,
+      t.value :: text as amount,
+      t.tx_hash as "txHash",
       'not confirmed' as status,
       i.snm_addr as "snmAddr"
     from transaction t

@@ -13,6 +13,8 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Read as T
 import qualified Data.Aeson as Aeson
 import           Data.Aeson ((.=))
+import qualified Data.Map as Map
+import           Data.List (foldl')
 
 import           System.Environment (getEnvironment, getEnv)
 
@@ -66,9 +68,21 @@ httpServer pg = do
     when (not $ validEth ethAddr)
       $ status badRequest400 >> text "Invalid ETH address" >> finish
 
-    [[res]] <- liftAndCatchIO $ withResource pg
-      $ \c -> PG.query c [sql| select addr_info(?) |] [ethAddr]
-    json (res :: Aeson.Value)
+    txs <- liftAndCatchIO $ withResource pg
+      $ \c -> PG.query c [sql|
+          select tx.currency, row_to_json (tx.*)
+            from transactions_by_addr tx
+            where "snmAddr" = ?
+        |] [ethAddr]
+    let txMap = foldl'
+          (\m (x :: Text, tx :: Aeson.Value) -> Map.insertWith' (++) x [tx] m)
+          Map.empty txs
+
+    json (Aeson.object
+      [ "snmBalance" .= txt "0.0",
+        "tx" .= Aeson.toJSON txMap
+      ])
+
 
   post "/invoice/:curr/:ethAddr" $ do
     currency <- T.toUpper <$> param "curr"
