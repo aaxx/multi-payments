@@ -2,14 +2,14 @@ create table price
   ( id serial primary key
   , ctime timestamptz not null default now()
   , currency currency_code not null
-  , price numeric(24,18) not null -- currency units per BTC
+  , price numeric(32,18) not null -- BTC per currency units
   );
 create index price_ctime_ix on price(ctime);
 
 
 create table price_correction
   ( currency currency_code unique not null
-  , factor numeric(24,18) not null
+  , factor numeric(32,18) not null
   );
 
 
