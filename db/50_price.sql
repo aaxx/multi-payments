@@ -19,8 +19,10 @@ create view actual_price as
       order by ctime desc limit 1)
   select distinct on (p.currency)
       p.currency,
-      coalesce(pc.factor, 1) * ico_config.snm_per_eth * p.price / eth.price
-        as snm_per_unit
+      ico_config.snm_per_eth * (coalesce(pc.factor, 1) * p.price / eth.price)
+        as snm_per_unit,
+      coalesce(pc.factor, 1) * p.price / eth.price
+        as eth_per_unit
     from price p
       join ico_config on (true)
       join eth on (true)
