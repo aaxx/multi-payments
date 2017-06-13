@@ -23,3 +23,18 @@ create table ico_config
   , analytics_tid text not null default 'UA-97005266-1'
   );
 insert into ico_config default values;
+
+
+create table currency_limit
+  ( currency currency_code unique not null
+  , soft_limit int8 not null
+  , hard_limit int8 not null
+  );
+
+insert into currency_limit values
+  ('LTC', 40000, 50000)
+, ('ETC', 65000, 75000)
+, ('XMR', 20000, 30000)
+, ('DASH', 7000, 8000)
+, ('TIME', 5000, 6500)
+;

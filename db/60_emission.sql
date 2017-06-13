@@ -1,8 +1,3 @@
-create table currency_limit
-  ( currency currency_code unique not null
-  , soft_limit int8 not null
-  , hard_limit int8 not null
-  );
 
 
 create type token_emission_status as enum
