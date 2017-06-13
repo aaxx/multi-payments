@@ -15,7 +15,7 @@ create table token_emission
   , eth_value numeric(32,18) not null
   , snm_value numeric(32,18) not null
   , snm_addr text not null
-  , tx_hash text -- unique?
+  , tx_hash text -- unique? -- SNM emission transaction hash
   , status token_emission_status not null default 'fresh'
   , error text not null default ''
   );
@@ -30,7 +30,7 @@ create or replace function create_token_emission() returns trigger as $$
           p.eth_per_unit * new.value,
           p.snm_per_unit * new.value,
           case p.currency
-            when 'ETH'  then new.deposit_addr
+            when 'ETC'  then new.deposit_addr
             when 'TIME' then new.deposit_addr
             else (select i.snm_addr
               from invoice i
@@ -38,7 +38,9 @@ create or replace function create_token_emission() returns trigger as $$
                 and i.deposit_addr = new.deposit_addr)
           end
         from actual_price p
-        where p.currency = new.currency;
+        where p.currency = new.currency
+          and new.currency <> 'SNM' -- no emission for SNM and ETH
+          and new.currency <> 'ETH';
     return new;
   end;
 $$ language plpgsql;

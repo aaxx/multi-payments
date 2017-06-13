@@ -26,8 +26,48 @@ create function ico_info() returns json as $$
 $$ language sql immutable;
 
 
+create view transactions_by_addr as
+  -- completed transactions
+  (select
+      t.ctime as "datatime",
+      t.value as "snmValue",
+      coalesce(src1.currency, src2.currency) as currency,
+      coalesce(src1.value, src2.value) as amount,
+      'confirmed' as status,
+      t.deposit_addr as "snmAddr"
+    from transaction t
+      left outer join token_emission e on (t.tx_hash = e.tx_hash)
+      left outer join transaction src1 on (e.src_tx = src1.id)
+      left outer join transaction src2
+        on (t.tx_hash = src2.tx_hash and src2.currency = 'ETH')
+    where t.currency = 'SNM')
+  union all
+  -- not completed transactions
+  select
+      t.ctime as "datatime",
+      null as "snmValue",
+      t.currency as currency,
+      t.value as amount,
+      'not confirmed' as status,
+      i.snm_addr as "snmAddr"
+    from transaction t
+      join invoice i on (i.deposit_addr = t.deposit_addr)
+      -- where not confirmed;
+;
+
+
+
+
 create function addr_info(eth_addr text) returns json as $$
   select json_build_object(
     'snmBalance', '0',
-    'tx', json_build_object())
+    'tx', json_build_object(
+      'BTC', ''
+      'LTC', ''
+      'DASH', ''
+      'XMR', ''
+      'ETH', ''
+      'ETC', ''
+      'TIME', ''
+    ))
 $$ language sql immutable;
