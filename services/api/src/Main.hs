@@ -24,7 +24,6 @@ import           Database.PostgreSQL.Simple.SqlQQ (sql)
 
 import           Web.Scotty
 import           Network.Wai.Middleware.Cors
-import           Network.HTTP.Types.Status (badRequest400)
 
 
 
@@ -32,7 +31,7 @@ const_HTTP_PORT :: Int
 const_HTTP_PORT = 8000
 
 const_curencies :: [Text]
-const_curencies = ["BTC", "LTC", "ETC", "XMR", "DASH"]
+const_curencies = ["BTC", "LTC", "XMR", "DASH"]
 
 main :: IO ()
 main = do
@@ -65,8 +64,7 @@ httpServer pg = do
 
   get "/info/:ethAddr" $ do
     ethAddr <- T.toLower <$> param "ethAddr"
-    when (not $ validEth ethAddr)
-      $ status badRequest400 >> text "Invalid ETH address" >> finish
+    when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
 
     txs <- liftAndCatchIO $ withResource pg
       $ \c -> PG.query c [sql|
@@ -79,7 +77,7 @@ httpServer pg = do
           Map.empty txs
 
     json (Aeson.object
-      [ "snmBalance" .= txt "0.0",
+      [ "snmBalance" .= txt "0.00000000",
         "tx" .= Aeson.toJSON txMap
       ])
 
@@ -87,11 +85,10 @@ httpServer pg = do
   post "/invoice/:curr/:ethAddr" $ do
     currency <- T.toUpper <$> param "curr"
     when (not $ currency `elem` const_curencies)
-      $ status badRequest400 >> text "Invalid currency code" >> finish
+      $ httpError "Invalid currency code"
 
     ethAddr  <- T.toLower <$> param "ethAddr"
-    when (not $ validEth ethAddr)
-      $ status badRequest400 >> text "Invalid ETH address" >> finish
+    when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
 
     -- TODO: get referrer & session form cookies
 
@@ -101,7 +98,7 @@ httpServer pg = do
 
     case res of
       [[Just jsn]] -> json (jsn :: Aeson.Value)
-      [[Nothing]] -> json (Aeson.object ["error" .= txt "Sudden lack of free addresses"])
+      [[Nothing]]  -> httpError "Sudden lack of free addresses"
       _  -> do
         logError "invoice: unexpected query result" res
         raise "Unexpected query result"
@@ -130,6 +127,8 @@ validEth eth = case T.hexadecimal eth of
 logInfo :: (MonadIO m, Show a) => Text -> a -> m ()
 logInfo m a = liftIO $ T.putStrLn $ m <> " >> " <> T.pack (show a)
 
-
 logError :: (MonadIO m, Show a) => Text -> a -> m ()
 logError m a = liftIO $ T.putStrLn $ "ERROR: " <> m <> " >> " <> T.pack (show a)
+
+httpError :: Text -> ActionM ()
+httpError msg = json (Aeson.object ["error" .= msg]) >> finish

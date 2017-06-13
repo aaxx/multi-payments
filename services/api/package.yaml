@@ -10,7 +10,6 @@ dependencies:
   - base
   - aeson
   - containers
-  - http-types
   - postgresql-simple
   - resource-pool
   - scotty
