@@ -1,0 +1,83 @@
+#! /bin/bash
+
+API='http://localhost:8000'
+PSQL="psql -h $RDS_HOSTNAME -U $RDS_USERNAME $RDS_DB_NAME"
+
+
+$PSQL << EOF
+insert into address values
+  ('BTC', '1SgacySQXJA8bLHnFhdQQjZBLW1gxSAjc')
+, ('BTC', '1RgacySQXJA8bLHnFhdQQjZBLW1gxSAjc')
+, ('BTC', '1QgacySQXJA8bLHnFhdQQjZBLW1gxSAjc')
+, ('LTC', 'LSgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7')
+, ('LTC', 'LFgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7')
+, ('LTC', 'LZgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7')
+;
+EOF
+
+
+curl -X POST $API/invoice/BTC/0x0000000000000000000000000000000000000001
+curl -X POST $API/invoice/BTC/0x0000000000000000000000000000000000000002
+curl -X POST $API/invoice/BTC/0x0000000000000000000000000000000000000004
+curl -X POST $API/invoice/LTC/0x0000000000000000000000000000000000000002
+curl -X POST $API/invoice/LTC/0x0000000000000000000000000000000000000003
+curl -X POST $API/invoice/LTC/0x0000000000000000000000000000000000000004
+curl -X POST $API/invoice/BTC/0x0000000000000000000000000000000000000001
+curl -X POST $API/invoice/BTC/0x0000000000000000000000000000000000000002
+curl -X POST $API/invoice/LTC/0x0000000000000000000000000000000000000002
+
+
+$PSQL << EOF
+insert into transaction (currency, value, tx_hash, deposit_addr) values
+  ( 'BTC', 10.0012
+  , 'asXNSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '1SgacySQXJA8bLHnFhdQQjZBLW1gxSAjc'
+  ),
+  ( 'BTC', 1.04012
+  , 'bsXNSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '1RgacySQXJA8bLHnFhdQQjZBLW1gxSAjc'
+  ),
+  ( 'BTC', 3.200012
+  , 'csXNSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '1RgacySQXJA8bLHnFhdQQjZBLW1gxSAjc'
+  ),
+  ( 'BTC', 10.00
+  , 'dsXNSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '1QgacySQXJA8bLHnFhdQQjZBLW1gxSAjc'
+  ),
+  ( 'LTC', 100.012
+  , 'XNSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , 'LSgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7'
+  ),
+  ( 'LTC', 64.012
+  , 'XQSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , 'LSgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7'
+  ),
+  ( 'LTC', 4.0
+  , 'XRSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , 'LFgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7'
+  ),
+  ( 'LTC', 14.88
+  , 'XTSGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , 'LZgacyeBuSwLaZaF5QLMiJL8E4rNCH6tJ7'
+  ),
+  ( 'TIME', 0.0001
+  , 'XESGqcmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '0x0000000000000000000000000000000000000002'
+  ),
+  ( 'ETH', 1230.0
+  , 'XETHmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '0x0000000000000000000000000000000000000002'
+  ),
+  ( 'ETC', 130.0
+  , 'XETCmTgYEquyvAFdeey2K724ev6CA9dcuuF8p627YXWxu4dULPvLpvbn'
+  , '0x0000000000000000000000000000000000000001'
+  );
+EOF
+
+
+$PSQL << EOF
+update transaction set confirmed=true where id in (0,1,3,5,7,10);
+EOF
+
+# set token emission results
