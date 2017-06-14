@@ -4,7 +4,7 @@
 module Main where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad (when)
+import           Control.Monad (when, void)
 
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -50,19 +50,28 @@ main = do
   scotty const_HTTP_PORT $ httpServer pg
 
 
+-- TODO:
+-- - cache
+-- - check limits in invoice
+-- - timeout in invoice
+
 httpServer :: Pool PG.Connection -> ScottyM ()
 httpServer pg = do
   let corsPolicy = simpleCorsResourcePolicy
   middleware $ cors (const $ Just corsPolicy)
 
+
+
   get "/" $ text "Ok"
 
   get "/config" $ do
+    sendAnalytics pg
     [[res]] <- liftAndCatchIO $ withResource pg
       $ flip PG.query_ [sql| select ico_info() |]
     json (res :: Aeson.Value)
 
   get "/info/:ethAddr" $ do
+    sendAnalytics pg
     ethAddr <- T.toLower <$> param "ethAddr"
     when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
 
@@ -83,14 +92,13 @@ httpServer pg = do
 
 
   post "/invoice/:curr/:ethAddr" $ do
+    sendAnalytics pg
     currency <- T.toUpper <$> param "curr"
     when (not $ currency `elem` const_curencies)
       $ httpError "Invalid currency code"
 
     ethAddr  <- T.toLower <$> param "ethAddr"
     when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
-
-    -- TODO: get referrer & session form cookies
 
     res <- liftAndCatchIO $ withResource pg $ \c -> PG.query c
       [sql| select create_invoice(?, ?) |]
@@ -110,6 +118,17 @@ httpServer pg = do
 
 txt :: Text -> Text
 txt = id
+
+
+sendAnalytics :: Pool PG.Connection -> ActionM ()
+sendAnalytics pg = do
+  cid <- param "cid" `rescue` \_ -> return ""
+  when (cid /= "") $ do
+    rq <- request
+    void $ liftAndCatchIO $ withResource pg
+      $ \c -> PG.execute c
+        [sql| insert into analytics_event (cid, action) values (?,?) |]
+        [cid , T.pack $ show rq]
 
 
 validEth :: Text -> Bool
