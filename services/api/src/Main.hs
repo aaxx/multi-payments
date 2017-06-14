@@ -5,6 +5,7 @@ module Main where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
 import           Control.Monad (when, void)
+import           Control.Concurrent (threadDelay)
 
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -92,6 +93,8 @@ httpServer pg = do
 
 
   post "/invoice/:curr/:ethAddr" $ do
+    liftIO $ threadDelay $ 1500 * 1000 -- small delay to throttle DB load
+
     sendAnalytics pg
     currency <- T.toUpper <$> param "curr"
     when (not $ currency `elem` const_curencies)
