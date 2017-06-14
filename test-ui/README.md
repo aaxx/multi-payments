@@ -1,2 +1,0 @@
-
-Test UI for multipayments
