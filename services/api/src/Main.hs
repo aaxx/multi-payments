@@ -16,7 +16,7 @@ import           Data.Aeson ((.=))
 import qualified Data.Map as Map
 import           Data.List (foldl')
 
-import           System.Environment (getEnvironment, getEnv)
+import           System.Environment (getEnv)
 
 import           Data.Pool (Pool, createPool, withResource)
 import qualified Database.PostgreSQL.Simple as PG
@@ -102,11 +102,6 @@ httpServer pg = do
       _  -> do
         logError "invoice: unexpected query result" res
         raise "Unexpected query result"
-
-  get "/env"
-    $ liftIO getEnvironment
-    >>= json . Aeson.object
-      . map (\(k,v) -> T.pack k .= T.pack v)
 
 
 -----------
