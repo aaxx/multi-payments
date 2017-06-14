@@ -12,7 +12,7 @@ create function fmt_utc(x timestamptz) returns text as $$
 $$ language sql immutable;
 
 
-create function ico_info() returns json as $$
+create or replace function ico_info() returns json as $$
   with
     raised as (
       select currency, sum(value) as sum
@@ -25,7 +25,11 @@ create function ico_info() returns json as $$
               p.currency as name,
               fmt_precise_number(p.snm_per_unit) as price,
               fmt_number(l.hard_limit) as "totalAmount",
-              fmt_number(coalesce(r.sum, 0)) as raised
+              fmt_number(coalesce(r.sum, 0)) as raised,
+              case
+                when l.soft_limit is null then true
+                else coalesce(r.sum, 0) < l.soft_limit
+              end as "depositEnabled"
             from actual_price p
               left outer join currency_limit l on (p.currency = l.currency)
               left outer join raised r on (r.currency = p.currency)
@@ -40,7 +44,7 @@ create function ico_info() returns json as $$
 $$ language sql immutable;
 
 
-create view transactions_by_addr as
+create or replace view transactions_by_addr as
   -- completed transactions
   (select
       fmt_utc(t.ctime) as "datatime",
