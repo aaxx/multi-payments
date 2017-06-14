@@ -1,10 +1,10 @@
 
-create function fmt_precise_number(x numeric) returns text as $$
-  select to_char(x, 'FM9999999999999999D99999999')
+create or replace  function fmt_precise_number(x numeric) returns text as $$
+  select to_char(x, 'FM9999999999999990D09999999')
 $$ language sql immutable;
 
-create function fmt_number(x numeric) returns text as $$
-  select to_char(x, 'FM9999999999999999D999')
+create or replace  function fmt_number(x numeric) returns text as $$
+  select to_char(x, 'FM9999999999999990D099')
 $$ language sql immutable;
 
 create function fmt_utc(x timestamptz) returns text as $$
