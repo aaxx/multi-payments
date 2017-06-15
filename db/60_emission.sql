@@ -24,14 +24,7 @@ create or replace function create_token_emission() returns trigger as $$
           new.id,
           p.eth_per_unit * new.value,
           p.snm_per_unit * new.value,
-          case p.currency
-            when 'ETC'  then new.deposit_addr
-            when 'TIME' then new.deposit_addr
-            else (select i.snm_addr
-              from invoice i
-              where i.currency = p.currency
-                and i.deposit_addr = new.deposit_addr)
-          end
+          new.snm_addr
         from actual_price p
         where p.currency = new.currency
           and new.currency <> 'SNM' -- no emission for SNM and ETH
