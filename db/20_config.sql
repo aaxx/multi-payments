@@ -1,5 +1,5 @@
 create type currency_code as enum
-  ( 'BTC' , 'LTC' , 'DASH' , 'XMR' , 'ETH' , 'ETC' , 'TIME' , 'SNM');
+  ( 'BTC', 'LTC', 'DASH', 'XMR', 'ETH', 'ETC', 'TIME', 'SNM');
 
 
 create table ico_config

@@ -14,8 +14,6 @@ import qualified Data.Text.IO as T
 import qualified Data.Text.Read as T
 import qualified Data.Aeson as Aeson
 import           Data.Aeson ((.=))
-import qualified Data.Map as Map
-import           Data.List (foldl')
 
 import           System.Environment (getEnv)
 
@@ -76,21 +74,9 @@ httpServer pg = do
     ethAddr <- T.toLower <$> param "ethAddr"
     when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
 
-    txs <- liftAndCatchIO $ withResource pg
-      $ \c -> PG.query c [sql|
-          select tx.currency, row_to_json (tx.*)
-            from transactions_by_addr tx
-            where "snmAddr" = ?
-        |] [ethAddr]
-    let txMap = foldl'
-          (\m (x :: Text, tx :: Aeson.Value) -> Map.insertWith' (++) x [tx] m)
-          Map.empty txs
-
-    json (Aeson.object
-      [ "snmBalance" .= txt "0.00000000",
-        "tx" .= Aeson.toJSON txMap
-      ])
-
+    [[res]] <- liftAndCatchIO $ withResource pg
+      $ \c -> PG.query c [sql| select addr_info(?) |] [ethAddr]
+    json (res :: Aeson.Value)
 
   post "/invoice/:curr/:ethAddr" $ do
     liftIO $ threadDelay $ 1500 * 1000 -- small delay to throttle DB load

@@ -9,7 +9,6 @@ category:    Development
 dependencies:
   - base
   - aeson
-  - containers
   - postgresql-simple
   - resource-pool
   - scotty

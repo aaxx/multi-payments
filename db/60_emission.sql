@@ -1,7 +1,7 @@
 
 
 create type token_emission_status as enum
-  ( 'fresh' );
+  ( 'fresh', 'transferred', 'limit_reached', 'error' );
 
 
 create table token_emission
@@ -14,6 +14,9 @@ create table token_emission
   , status token_emission_status not null default 'fresh'
   , error text not null default ''
   );
+
+create index token_emission_snm_ix on token_emission(snm_addr);
+
 
 
 create or replace function create_token_emission() returns trigger as $$
