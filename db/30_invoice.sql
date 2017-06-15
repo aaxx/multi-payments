@@ -14,6 +14,17 @@ create table invoice
   , constraint invoice_unique_addr unique (snm_addr, currency)
   );
 -- imposed index on (snm_addr, currency)
+-- imposed index on (deposit_addr)
+
+
+insert into address (currency, addr) values
+  ('BTC', '1HvLrjC2xCF3dKXigEtiG96zsYWTcJz5Yk');
+
+insert into invoice (currency, deposit_addr, snm_addr) values
+  ( 'BTC'
+  , '1HvLrjC2xCF3dKXigEtiG96zsYWTcJz5Yk'
+  , '0x503066f2ead628569f16c01c4b3ca469f22cec4a'
+  );
 
 
 create function create_invoice(cur currency_code, eth_addr text) returns json as $$
