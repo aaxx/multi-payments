@@ -4,8 +4,9 @@
 module Main where
 
 import           Control.Monad.IO.Class (MonadIO, liftIO)
-import           Control.Monad (when, void)
-import           Control.Concurrent (threadDelay)
+import           Control.Monad (when, void, forever)
+import           Control.Concurrent (forkIO, threadDelay)
+import           Control.Concurrent.MVar
 
 import           Data.Monoid ((<>))
 import           Data.Text (Text)
@@ -45,25 +46,30 @@ main = do
   pg <- createPool (PG.connect pgConn) PG.close 1 (fromInteger 20) 5
   [[True]] <- withResource pg $ flip PG.query_ [sql| select true |]
 
+  -- refresh config in a loop
+  ico_config <- liftIO newEmptyMVar
+  void $ forkIO $ forever $ do
+    [[res]] <- withResource pg $ flip PG.query_ [sql| select ico_info() |]
+    void $ tryTakeMVar ico_config
+    putMVar ico_config res
+    threadDelay $ 1000 * 1000
+
   logInfo "HTTP" const_HTTP_PORT
-  scotty const_HTTP_PORT $ httpServer pg
+  scotty const_HTTP_PORT $ httpServer pg ico_config
 
 
 -- TODO:
 -- - cache
 -- - check limits in invoice
 
-httpServer :: Pool PG.Connection -> ScottyM ()
-httpServer pg = do
+httpServer :: Pool PG.Connection -> MVar Aeson.Value -> ScottyM ()
+httpServer pg ico_config = do
   let corsPolicy = simpleCorsResourcePolicy
   middleware $ cors (const $ Just corsPolicy)
 
   get "/" $ text "Ok"
 
-  get "/config" $ do
-    [[res]] <- liftAndCatchIO $ withResource pg
-      $ flip PG.query_ [sql| select ico_info() |]
-    json (res :: Aeson.Value)
+  get "/config" $ liftIO (readMVar ico_config) >>= json
 
   get "/info/:ethAddr" $ do
     ethAddr <- T.toLower <$> param "ethAddr"
