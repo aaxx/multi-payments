@@ -52,27 +52,23 @@ main = do
 -- TODO:
 -- - cache
 -- - check limits in invoice
--- - timeout in invoice
 
 httpServer :: Pool PG.Connection -> ScottyM ()
 httpServer pg = do
   let corsPolicy = simpleCorsResourcePolicy
   middleware $ cors (const $ Just corsPolicy)
 
-
-
   get "/" $ text "Ok"
 
   get "/config" $ do
-    sendAnalytics pg
     [[res]] <- liftAndCatchIO $ withResource pg
       $ flip PG.query_ [sql| select ico_info() |]
     json (res :: Aeson.Value)
 
   get "/info/:ethAddr" $ do
-    sendAnalytics pg
     ethAddr <- T.toLower <$> param "ethAddr"
     when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
+    sendAnalytics pg "info" ethAddr
 
     [[res]] <- liftAndCatchIO $ withResource pg
       $ \c -> PG.query c [sql| select addr_info(?) |] [ethAddr]
@@ -81,13 +77,13 @@ httpServer pg = do
   post "/invoice/:curr/:ethAddr" $ do
     liftIO $ threadDelay $ 1500 * 1000 -- small delay to throttle DB load
 
-    sendAnalytics pg
     currency <- T.toUpper <$> param "curr"
     when (not $ currency `elem` const_curencies)
       $ httpError "Invalid currency code"
 
     ethAddr  <- T.toLower <$> param "ethAddr"
     when (not $ validEth ethAddr) $ httpError "Invalid ETH address"
+    sendAnalytics pg ("invoice/" <> currency) ethAddr
 
     res <- liftAndCatchIO $ withResource pg $ \c -> PG.query c
       [sql| select create_invoice(?, ?) |]
@@ -105,19 +101,14 @@ httpServer pg = do
 -- Utility
 -----------
 
-txt :: Text -> Text
-txt = id
-
-
-sendAnalytics :: Pool PG.Connection -> ActionM ()
-sendAnalytics pg = do
+sendAnalytics :: Pool PG.Connection -> Text -> Text -> ActionM ()
+sendAnalytics pg tag addr = do
   cid <- param "cid" `rescue` \_ -> return ""
   when (cid /= "") $ do
-    rq <- request
     void $ liftAndCatchIO $ withResource pg
       $ \c -> PG.execute c
-        [sql| insert into analytics_event (cid, action) values (?,?) |]
-        [cid , T.pack $ show rq]
+        [sql| insert into analytics_event (cid, tag, addr) values (?,?,?) |]
+        [cid , tag, addr]
 
 
 validEth :: Text -> Bool
