@@ -35,7 +35,7 @@ trackedCurrencies = ["BTC", "LTC", "ETH", "ETC", "DASH", "XMR", "TIME"]
 
 main :: IO ()
 main = do
-  loopInterval <- maybe 666 read <$> lookupEnv "LOOP_INTERVAL_SECONDS"
+  loopInterval <- maybe 333 read <$> lookupEnv "LOOP_INTERVAL_SECONDS"
 
   pgConn <- PG.ConnectInfo
     <$> getEnv "RDS_HOSTNAME"
